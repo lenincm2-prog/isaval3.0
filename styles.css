@@ -2328,18 +2328,87 @@ button:disabled {
 }
 
 @media (max-width: 720px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 10px 12px;
+    gap: 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 10px 28px rgba(32, 36, 51, 0.08);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .brand img {
+    width: 132px;
+  }
+
+  .brand span {
+    margin-top: 0;
+    font-size: 11px;
+  }
+
   .workspace {
-    padding: 16px;
+    padding: 14px 12px 24px;
   }
 
   .filters {
     position: static;
+    margin-bottom: 14px;
   }
 
   .topbar,
   .section-head,
   .panel-head {
     display: grid;
+    gap: 10px;
+  }
+
+  .topbar {
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 30px;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+  }
+
+  h2 {
+    font-size: 17px;
+  }
+
+  .top-actions {
+    width: 100%;
+  }
+
+  .top-actions .ghost-btn,
+  .price-send-actions .ghost-btn,
+  .price-send-actions .action-link {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
   }
 
   .filters,
@@ -2367,12 +2436,57 @@ button:disabled {
 
   .nav {
     width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+
+  .nav-btn {
+    flex: 0 0 118px;
+    min-height: 42px;
+    padding: 8px 10px;
+    scroll-snap-align: start;
+  }
+
+  .nav-btn span:not(.ico) {
+    white-space: nowrap;
   }
 
   .source-note {
+    display: none;
     width: 100%;
     margin-left: 0;
+  }
+
+  .panel {
+    border-radius: 8px;
+  }
+
+  .panel-head span {
+    justify-self: start;
+  }
+
+  label span {
+    font-size: 11px;
+  }
+
+  input,
+  select,
+  button,
+  textarea {
+    font-size: 16px;
+  }
+
+  .filters input,
+  .filters select,
+  .quote-filters input,
+  .quote-filters select,
+  .stock-filters input,
+  .stock-filters select,
+  .price-toolbar input {
+    min-height: 44px;
   }
 
   .bar-row {
@@ -2399,5 +2513,168 @@ button:disabled {
 
   .detail-panel {
     position: static;
+  }
+
+  .table-scroll,
+  .quote-table-wrap,
+  .stock-table-wrap,
+  .price-table-wrap,
+  .new-client-scroll,
+  .product-detail-scroll,
+  .product-ranking-panel .simple-ranking {
+    max-height: none;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-scroll table {
+    min-width: 760px;
+  }
+
+  .quote-table-wrap table {
+    min-width: 780px;
+  }
+
+  .stock-table-wrap {
+    overflow-x: auto;
+  }
+
+  .stock-table-wrap table {
+    min-width: 1050px;
+  }
+
+  .price-table {
+    min-width: 1120px;
+    font-size: 11px;
+  }
+
+  .price-table th,
+  .price-table td {
+    padding: 8px 7px;
+  }
+
+  .price-table th:nth-child(3),
+  .price-table td:nth-child(3) {
+    min-width: 240px;
+  }
+
+  .price-table th:nth-child(4),
+  .price-table td:nth-child(4) {
+    min-width: 300px;
+  }
+
+  .technical-description {
+    font-size: 11px;
+  }
+
+  .technical-sheet-link {
+    padding: 5px 7px;
+  }
+
+  .price-toolbar,
+  .price-send-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .price-send-actions {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .price-message-preview {
+    min-height: 128px;
+  }
+
+  .new-client-table,
+  .product-detail-table,
+  .product-yearly table {
+    min-width: 720px;
+  }
+
+  .product-row {
+    gap: 8px;
+  }
+
+  .product-row b,
+  .rank {
+    width: 30px;
+    height: 30px;
+  }
+
+  .recovery-card {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .recovery-status {
+    justify-self: start;
+  }
+
+  .recovery-metrics {
+    gap: 6px;
+  }
+
+  .recovery-metrics div {
+    padding: 8px;
+  }
+
+  .playbook {
+    padding: 12px;
+  }
+
+  .donut-wrap svg {
+    max-width: 220px;
+    margin: 0 auto;
+  }
+
+  .seller-card {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 430px) {
+  .workspace {
+    padding-inline: 10px;
+  }
+
+  h1 {
+    font-size: 27px;
+  }
+
+  .login-screen {
+    padding: 14px;
+  }
+
+  .login-card {
+    padding: 20px;
+  }
+
+  .brand img {
+    width: 116px;
+  }
+
+  .nav-btn {
+    flex-basis: 106px;
+  }
+
+  .top-actions .ghost-btn {
+    min-width: calc(50% - 4px);
+  }
+
+  .kpi-card,
+  .panel,
+  .metric-tile,
+  .recovery-card {
+    min-width: 0;
+  }
+
+  .price-table {
+    min-width: 1040px;
+  }
+
+  .stock-table-wrap table {
+    min-width: 980px;
   }
 }
