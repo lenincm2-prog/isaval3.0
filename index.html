@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ISAVAL Global | CRM Historico Comercial</title>
+    <link rel="stylesheet" href="styles.css?v=technical-info-v24" />
+  </head>
+  <body>
+    <section id="loginScreen" class="login-screen">
+      <form id="loginForm" class="login-card">
+        <img src="assets/isaval-global-logo.png" alt="ISAVAL Global" />
+        <div>
+          <p class="eyebrow">Acceso privado</p>
+          <h1>CRM ISAVAL</h1>
+        </div>
+        <label>
+          <span>Correo</span>
+          <input id="loginEmail" type="email" autocomplete="username" required />
+        </label>
+        <label>
+          <span>Clave</span>
+          <input id="loginPassword" type="password" autocomplete="current-password" required />
+        </label>
+        <p id="loginError" class="login-error" role="alert"></p>
+        <button type="submit">Ingresar</button>
+      </form>
+    </section>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img src="assets/isaval-global-logo.png" alt="ISAVAL Global" />
+          <span>Accion comercial</span>
+        </div>
+        <nav class="nav" aria-label="Vistas">
+          <button class="nav-btn active" data-view="overview" title="Resumen">
+            <span class="ico">⌂</span><span>Resumen</span>
+          </button>
+          <button class="nav-btn" data-view="actions" title="Acciones">
+            <span class="ico">☑</span><span>Acciones</span>
+          </button>
+          <button class="nav-btn" data-view="recovery" title="Recuperacion">
+            <span class="ico">↗</span><span>Recuperacion</span>
+          </button>
+          <button class="nav-btn" data-view="clients" title="Clientes">
+            <span class="ico">◎</span><span>Clientes</span>
+          </button>
+          <button class="nav-btn" data-view="sellers" title="Vendedores">
+            <span class="ico">♙</span><span>Vendedores</span>
+          </button>
+          <button class="nav-btn" data-view="products" title="Productos">
+            <span class="ico">▦</span><span>Productos</span>
+          </button>
+          <button class="nav-btn" data-view="quotes" title="Cotizaciones 2026">
+            <span class="ico">%</span><span>Cotizaciones</span>
+          </button>
+          <button class="nav-btn" data-view="stock" title="Analisis de stock">
+            <span class="ico">#</span><span>Stock</span>
+          </button>
+          <button class="nav-btn" data-view="prices" title="Precios y stock">
+            <span class="ico">S/</span><span>Precios</span>
+          </button>
+        </nav>
+        <div class="source-note">
+          <strong>Historico</strong>
+          <span id="periodLabel">2022 Q1 - 2026 Q1</span>
+          <span id="generatedAt"></span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="pageEyebrow">Herramienta local CRM</p>
+            <h1 id="pageTitle">Historico trimestral de ventas</h1>
+          </div>
+          <div class="top-actions">
+            <button id="exportCsv" class="ghost-btn" title="Exportar cola de accion">⇩ CSV</button>
+            <button id="logoutBtn" class="ghost-btn danger" title="Cerrar sesion">Salir</button>
+          </div>
+        </header>
+
+        <section class="filters" aria-label="Filtros">
+          <label>
+            <span>Buscar</span>
+            <input id="searchInput" type="search" placeholder="Cliente, RUC, vendedor o familia" />
+          </label>
+          <label>
+            <span>Accion</span>
+            <select id="stageFilter">
+              <option value="all">Todas</option>
+              <option value="Recuperar">Recuperar</option>
+              <option value="Defender">Defender</option>
+              <option value="Expandir">Expandir</option>
+              <option value="Mantener">Mantener</option>
+              <option value="Prospectar">Prospectar</option>
+            </select>
+          </label>
+          <label>
+            <span>Vendedor</span>
+            <select id="sellerFilter"></select>
+          </label>
+          <label>
+            <span>Min. venta 12M</span>
+            <input id="minSales" type="range" min="0" max="50000" step="1000" value="0" />
+            <b id="minSalesLabel">S/ 0</b>
+          </label>
+        </section>
+
+        <section id="overview" class="view active">
+          <div class="kpi-grid" id="kpiGrid"></div>
+          <div class="overview-stack">
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Ventas trimestrales</h2>
+                  <span>Importe total y clientes activos</span>
+                </div>
+                <div id="timelineChart" class="chart"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Comparativo trimestral</h2>
+                  <span>Importe neto sin IVA</span>
+                </div>
+                <div id="quarterCompare" class="quarter-compare"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Resumen mensual</h2>
+                  <span id="monthlySubtitle">Año en curso</span>
+                </div>
+                <div id="monthlySummary" class="monthly-summary"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Comparativo mes/año</h2>
+                  <span>Ventas netas por mes</span>
+                </div>
+                <div id="monthlyComparison" class="monthly-comparison"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Analisis comercial KPI</h2>
+                  <span>Clientes desde 2022</span>
+                </div>
+                <div id="commercialKpi" class="commercial-kpi"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Clientes nuevos registrados 2026</h2>
+                  <span>Alta, conversion e importe por comercial</span>
+                </div>
+                <div id="newClients2026" class="new-clients-section"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Top 20 clientes</h2>
+                  <span>Compra acumulada historica</span>
+                </div>
+                <div id="clientRanking" class="simple-ranking"></div>
+              </article>
+              <article class="panel">
+                <div class="panel-head">
+                  <h2>Clientes recurrentes</h2>
+                  <span>Compraron todos los anos 2022-2026</span>
+                </div>
+                <div id="recurringClients" class="simple-ranking"></div>
+              </article>
+          </div>
+        </section>
+
+        <section id="actions" class="view">
+          <div class="section-head">
+            <div>
+              <h2>Cola de accion comercial</h2>
+              <p>Priorizada por riesgo, recencia, caida y valor recuperable.</p>
+            </div>
+            <div class="segmented" id="statusTabs">
+              <button class="active" data-status="open">Abiertas</button>
+              <button data-status="done">Hechas</button>
+              <button data-status="all">Todas</button>
+            </div>
+          </div>
+          <div id="actionBoard" class="action-board"></div>
+        </section>
+
+        <section id="recovery" class="view">
+          <div class="section-head">
+            <div>
+              <h2>Analisis integral de recuperacion</h2>
+              <p>Clientes con venta fuerte historica, baja actividad reciente y mayor potencial de recompra.</p>
+            </div>
+          </div>
+          <div class="content-grid recovery-grid">
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>Prioridad por cliente dormido</h2>
+                <span id="recoveryCount"></span>
+              </div>
+              <div id="recoveryRows" class="recovery-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Playbook de accion</h2>
+                <span>Secuencia recomendada</span>
+              </div>
+              <div class="playbook">
+                <div><b>1</b><span>Confirmar decisor, obra o proveedor actual.</span></div>
+                <div><b>2</b><span>Mostrar ultimo mix comprado y pedir reposicion equivalente.</span></div>
+                <div><b>3</b><span>Ofrecer pedido puente sobre familia principal.</span></div>
+                <div><b>4</b><span>Escalar condicion solo si hay fecha de recompra.</span></div>
+                <div><b>5</b><span>Registrar nota y siguiente contacto en la ficha.</span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="clients" class="view">
+          <article class="panel portfolio-map-panel">
+            <div class="panel-head">
+              <h2>Mapa de cartera</h2>
+              <span>Prioridad por accion</span>
+            </div>
+            <div id="stageDonut" class="donut-wrap"></div>
+          </article>
+          <div class="client-layout">
+            <article class="panel table-panel">
+              <div class="panel-head">
+                <h2>Clientes</h2>
+                <span id="clientCount"></span>
+              </div>
+              <div class="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Accion</th>
+                      <th>12M</th>
+                      <th>Var.</th>
+                      <th>Ultima compra</th>
+                      <th>Prioridad</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clientRows"></tbody>
+                </table>
+              </div>
+            </article>
+            <aside class="panel detail-panel" id="clientDetail"></aside>
+          </div>
+        </section>
+
+        <section id="sellers" class="view">
+          <div class="content-grid">
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>Vendedores</h2>
+                <span>Cartera, riesgo y recuperacion</span>
+              </div>
+              <div id="sellerRows" class="seller-grid"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="products" class="view">
+          <div class="product-page-layout">
+            <article class="panel product-ranking-panel">
+              <div class="panel-head">
+                <h2>Top 20 productos</h2>
+                <span>Presentaciones consolidadas</span>
+              </div>
+              <div id="productRanking" class="simple-ranking"></div>
+            </article>
+            <article class="panel" id="productBuyers"></article>
+          </div>
+        </section>
+
+        <section id="quotes" class="view">
+          <div class="section-head">
+            <div>
+              <h2>Analisis de Cotizaciones 2026</h2>
+              <p>Gestion comercial por comercial, cierre, oportunidades perdidas, productos demandados y clientes potenciales.</p>
+            </div>
+          </div>
+          <div class="quote-filters">
+            <label><span>Comercial</span><select id="quoteSellerFilter"></select></label>
+            <label><span>Estado</span><select id="quoteStatusFilter"></select></label>
+            <label><span>Cliente</span><input id="quoteClientFilter" type="search" placeholder="Buscar cliente o RUC" /></label>
+            <label><span>Producto</span><input id="quoteProductFilter" type="search" placeholder="Buscar producto" /></label>
+            <label><span>Desde</span><input id="quoteDateFrom" type="date" /></label>
+            <label><span>Hasta</span><input id="quoteDateTo" type="date" /></label>
+          </div>
+          <div id="quoteKpis" class="kpi-grid"></div>
+          <div class="quote-layout two">
+            <article class="panel wide">
+              <div class="panel-head">
+                <h2>Desempeno por comercial</h2>
+                <span>Tasa de cierre, monto y actividad</span>
+              </div>
+              <div id="quoteSellerTable" class="table-scroll quote-table-wrap"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Comparativo general</h2>
+                <span>Emitidas, cerradas, expiradas y pendientes</span>
+              </div>
+              <div id="quoteStatusChart" class="quote-status-chart"></div>
+            </article>
+          </div>
+          <div class="quote-layout three">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Productos mas cotizados</h2>
+                <span>Cantidad de cotizaciones</span>
+              </div>
+              <div id="quoteProductsCount" class="quote-ranking"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Productos por monto</h2>
+                <span>Mayor demanda valorizada</span>
+              </div>
+              <div id="quoteProductsAmount" class="quote-ranking"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Productos cerrados</h2>
+                <span>Cotizaciones atendidas</span>
+              </div>
+              <div id="quoteProductsClosed" class="quote-ranking"></div>
+            </article>
+          </div>
+          <div class="quote-layout two">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Clientes por cantidad</h2>
+                <span>Mayor actividad cotizada</span>
+              </div>
+              <div id="quoteClientsCount" class="quote-ranking"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Clientes por monto</h2>
+                <span>Mayor potencial economico</span>
+              </div>
+              <div id="quoteClientsAmount" class="quote-ranking"></div>
+            </article>
+          </div>
+          <div class="quote-layout three">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Cotizaciones repetidas</h2>
+                <span>Mismo cliente y producto similar</span>
+              </div>
+              <div id="quoteRepeated" class="table-scroll quote-table-wrap"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Vencidas sin cierre</h2>
+                <span>Expiradas con mayor monto</span>
+              </div>
+              <div id="quoteExpired" class="table-scroll quote-table-wrap"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Alto monto sin cierre</h2>
+                <span>Prioridad de seguimiento</span>
+              </div>
+              <div id="quoteHighOpen" class="table-scroll quote-table-wrap"></div>
+            </article>
+          </div>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Comentarios para Gerencia General</h2>
+              <span>Conclusiones automaticas</span>
+            </div>
+            <div id="quoteComments" class="quote-comments"></div>
+          </article>
+        </section>
+
+        <section id="stock" class="view">
+          <div class="stock-page-head">
+            <div>
+              <h2>Rotacion por producto</h2>
+              <p id="stockCount"></p>
+            </div>
+            <span id="stockSource" class="muted"></span>
+          </div>
+          <div class="stock-filters">
+            <label><span>Buscar</span><input id="stockSearch" type="search" placeholder="Codigo, producto, marca o clase" /></label>
+            <label><span>ABC</span><select id="stockAbcFilter"></select></label>
+            <label><span>Estado</span><select id="stockStatusFilter"></select></label>
+            <label><span>Clase</span><select id="stockClassFilter"></select></label>
+          </div>
+          <div id="stockRows" class="stock-table-wrap"></div>
+        </section>
+
+        <section id="prices" class="view">
+          <div class="section-head">
+            <div>
+              <h2>Lista de precios y stock</h2>
+              <p>Precio, IGV, stock actual y costo promedio por producto.</p>
+            </div>
+          </div>
+          <div class="price-toolbar">
+            <label>
+              <span>Buscar</span>
+              <input id="priceSearch" type="search" placeholder="Codigo, producto o lista" />
+            </label>
+          </div>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Enviar por WhatsApp</h2>
+              <span>Codigo, producto, valor, IGV y total</span>
+            </div>
+            <div id="priceWhatsappPanel" class="price-whatsapp-panel"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Detalle de precios</h2>
+              <span id="priceCount"></span>
+            </div>
+            <div id="priceRows" class="price-table-wrap"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="data/crm-data.js?v=technical-info-v24"></script>
+    <script src="data/stock-analysis.js?v=technical-info-v24"></script>
+    <script src="data/product-yearly-sales.js?v=technical-info-v24"></script>
+    <script src="app.js?v=technical-info-v24"></script>
+  </body>
+</html>
