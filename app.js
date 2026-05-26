@@ -79,6 +79,15 @@ const state = {
   priceSearch: "",
   selectedPriceKeys: new Set(),
   selectedPriceRows: new Map(),
+  priceQuoteQuantities: new Map(),
+  priceQuoteCustomer: {
+    search: "",
+    ruc: "",
+    businessName: "",
+    address: "",
+    attention: "",
+    seller: "",
+  },
   priceWhatsappPhone: "",
   stockSearch: "",
   stockAbc: "all",
@@ -104,7 +113,8 @@ const money = (value) =>
   new Intl.NumberFormat("es-PE", {
     style: "currency",
     currency: "PEN",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value || 0);
 
 const money2 = (value) =>
@@ -1529,6 +1539,9 @@ function renderPriceWhatsappPanel(allRows, visibleRows = allRows) {
       <div class="price-send-actions">
         <strong>${number(selected.length)} seleccionados</strong>
         ${href ? `<a class="ghost-btn action-link whatsapp" href="${href}">${phone ? "Enviar WhatsApp" : "Abrir WhatsApp"}</a>` : `<button class="ghost-btn" disabled>Abrir WhatsApp</button>`}
+        <button class="ghost-btn strong-action" id="openPriceQuote" ${selected.length ? "" : "disabled"}>Pre cotizacion PDF</button>
+        <button class="ghost-btn" id="downloadSelectedQuotePdf" ${selected.length ? "" : "disabled"}>Descargar PDF</button>
+        <button class="ghost-btn whatsapp" id="shareSelectedQuotePdf" ${selected.length ? "" : "disabled"}>Enviar PDF</button>
         <button class="ghost-btn" id="exportSelectedPrices" ${selected.length ? "" : "disabled"}>Excel</button>
         <button class="ghost-btn" id="selectAllPrices">Seleccionar todos</button>
         <button class="ghost-btn" id="clearPriceSelection">Limpiar</button>
@@ -1541,6 +1554,9 @@ function renderPriceWhatsappPanel(allRows, visibleRows = allRows) {
     renderPrices();
   });
   $("#exportSelectedPrices").addEventListener("click", () => exportSelectedPrices(selected));
+  $("#openPriceQuote").addEventListener("click", () => renderPriceQuoteModal(selected));
+  $("#downloadSelectedQuotePdf").addEventListener("click", () => downloadPriceQuotePdf(selected));
+  $("#shareSelectedQuotePdf").addEventListener("click", () => sharePriceQuotePdf(selected));
   $("#selectAllPrices").addEventListener("click", () => {
     visibleRows.slice(0, 600).forEach((row) => {
       const key = priceKey(row);
@@ -1549,6 +1565,398 @@ function renderPriceWhatsappPanel(allRows, visibleRows = allRows) {
     });
     renderPrices();
   });
+}
+
+function renderPriceQuoteModal(rows) {
+  if (!rows.length) return;
+  const existing = $("#priceQuoteModal");
+  if (existing) existing.remove();
+  rows.forEach((row) => {
+    const key = priceKey(row);
+    if (!state.priceQuoteQuantities.has(key)) state.priceQuoteQuantities.set(key, 1);
+  });
+  const message = priceQuoteMessage(rows);
+  const href = `whatsapp://send?text=${encodeURIComponent(message)}`;
+  const total = rows.reduce((sum, row) => sum + priceQuoteQuantity(row) * Number(row.totalSale || 0), 0);
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `<div class="modal-backdrop" id="priceQuoteModal">
+      <section class="price-quote-modal" role="dialog" aria-modal="true" aria-label="Pre cotizacion">
+        <div class="modal-head">
+          <div>
+            <h2>Pre cotizacion</h2>
+            <p>Precio de lista referencial con IGV incluido.</p>
+          </div>
+          <button class="mini-btn" id="closePriceQuote" aria-label="Cerrar">Cerrar</button>
+        </div>
+        ${priceQuoteCustomerForm()}
+        <div class="price-quote-list">
+          ${rows
+            .map((row, index) => {
+              const key = priceKey(row);
+              const qty = priceQuoteQuantity(row);
+              const subtotal = qty * Number(row.totalSale || 0);
+              return `
+                <article class="price-quote-row">
+                  <div>
+                    <strong>${index + 1}. ${escapeHtml(row.productName || "Sin nombre")}</strong>
+                    <span>${escapeHtml(row.commercialCode || "s/d")} · ${escapeHtml(technicalSummaryFor(row))}</span>
+                  </div>
+                  <label>
+                    <span>Cant.</span>
+                    <input type="number" min="0" step="1" value="${qty}" data-quote-qty="${escapeHtml(key)}" />
+                  </label>
+                  <div class="quote-price"><span>Lista c/IGV</span><strong>${money(row.totalSale)}</strong></div>
+                  <div class="quote-price"><span>Subtotal</span><strong>${money(subtotal)}</strong></div>
+                </article>`;
+            })
+            .join("")}
+        </div>
+        <div class="price-quote-total">
+          <span>Total referencial</span>
+          <strong>${money(total)}</strong>
+        </div>
+        <textarea class="price-message-preview quote-preview" readonly>${escapeHtml(message)}</textarea>
+        <div class="modal-actions">
+          <button class="ghost-btn" id="refreshPriceQuote">Actualizar cantidades</button>
+          <button class="ghost-btn" id="downloadPriceQuotePdf">Descargar PDF</button>
+          <button class="ghost-btn whatsapp" id="sharePriceQuotePdf">Enviar PDF</button>
+          <a class="ghost-btn action-link whatsapp" href="${href}">Enviar texto</a>
+        </div>
+      </section>
+    </div>`
+  );
+  $("#closePriceQuote").addEventListener("click", closePriceQuoteModal);
+  $("#priceQuoteModal").addEventListener("click", (event) => {
+    if (event.target.id === "priceQuoteModal") closePriceQuoteModal();
+  });
+  bindPriceQuoteCustomerFields(rows);
+  $$("#priceQuoteModal [data-quote-qty]").forEach((input) => {
+    input.addEventListener("input", () => {
+      state.priceQuoteQuantities.set(input.dataset.quoteQty, Math.max(0, Number(input.value || 0)));
+    });
+  });
+  $("#refreshPriceQuote").addEventListener("click", () => renderPriceQuoteModal(rows));
+  $("#downloadPriceQuotePdf").addEventListener("click", () => downloadPriceQuotePdf(rows));
+  $("#sharePriceQuotePdf").addEventListener("click", () => sharePriceQuotePdf(rows));
+}
+
+function closePriceQuoteModal() {
+  $("#priceQuoteModal")?.remove();
+}
+
+function priceQuoteCustomerForm() {
+  const customer = state.priceQuoteCustomer;
+  return `
+    <div class="price-quote-customer">
+      <datalist id="quoteClientOptions">
+        ${quoteClientOptions().map((client) => `<option value="${escapeHtml(quoteClientLabel(client))}"></option>`).join("")}
+      </datalist>
+      <datalist id="quoteSellerOptions">
+        ${quoteSellerOptions().map((seller) => `<option value="${escapeHtml(seller)}"></option>`).join("")}
+      </datalist>
+      <label class="wide"><span>Buscar cliente</span><input id="quoteClientSearch" list="quoteClientOptions" value="${escapeHtml(customer.search)}" placeholder="RUC o razon social" /></label>
+      <label><span>R.U.C.</span><input id="quoteCustomerRuc" value="${escapeHtml(customer.ruc)}" placeholder="Por confirmar" /></label>
+      <label><span>Razon social</span><input id="quoteCustomerBusiness" value="${escapeHtml(customer.businessName)}" placeholder="Por confirmar" /></label>
+      <label class="wide"><span>Direccion</span><input id="quoteCustomerAddress" value="${escapeHtml(customer.address)}" placeholder="Por confirmar" /></label>
+      <label><span>Atencion</span><input id="quoteCustomerAttention" value="${escapeHtml(customer.attention)}" placeholder="Por confirmar" /></label>
+      <label><span>Vendedor</span><input id="quoteCustomerSeller" list="quoteSellerOptions" value="${escapeHtml(customer.seller)}" placeholder="Por confirmar" /></label>
+    </div>`;
+}
+
+function quoteClientOptions() {
+  return [...(data.clients || [])]
+    .sort((a, b) => (b.total || 0) - (a.total || 0))
+    .slice(0, 350);
+}
+
+function quoteClientLabel(client) {
+  return `${client.doc || ""} - ${client.name || ""}`.trim();
+}
+
+function quoteSellerOptions() {
+  return [...new Set([...(data.sellers || []).map((seller) => seller.name), ...(data.clients || []).map((client) => client.seller)].filter(Boolean))].sort();
+}
+
+function bindPriceQuoteCustomerFields(rows) {
+  const customer = state.priceQuoteCustomer;
+  const fieldMap = {
+    quoteCustomerRuc: "ruc",
+    quoteCustomerBusiness: "businessName",
+    quoteCustomerAddress: "address",
+    quoteCustomerAttention: "attention",
+    quoteCustomerSeller: "seller",
+  };
+  Object.entries(fieldMap).forEach(([id, key]) => {
+    $(`#${id}`)?.addEventListener("input", (event) => {
+      customer[key] = event.target.value;
+    });
+  });
+  $("#quoteClientSearch")?.addEventListener("change", (event) => {
+    customer.search = event.target.value;
+    const found = findQuoteClient(event.target.value);
+    if (found) {
+      fillPriceQuoteCustomer(found);
+      renderPriceQuoteModal(rows);
+    }
+  });
+  $("#quoteClientSearch")?.addEventListener("input", (event) => {
+    customer.search = event.target.value;
+  });
+}
+
+function findQuoteClient(value) {
+  const term = normalizeTechnicalText(value);
+  if (!term) return null;
+  return (data.clients || []).find((client) => {
+    const label = normalizeTechnicalText(quoteClientLabel(client));
+    return label === term || label.includes(term) || term.includes(normalizeTechnicalText(client.doc || ""));
+  });
+}
+
+function fillPriceQuoteCustomer(client) {
+  const contact = client.contact || {};
+  state.priceQuoteCustomer = {
+    search: quoteClientLabel(client),
+    ruc: client.doc || "",
+    businessName: client.name || contact.contact || "",
+    address: contact.address || "",
+    attention: contact.contact || client.name || "",
+    seller: client.seller || contact.seller || "",
+  };
+}
+
+function quoteCustomerValue(key, fallback = "Por confirmar") {
+  return state.priceQuoteCustomer?.[key]?.trim() || fallback;
+}
+
+function priceQuoteQuantity(row) {
+  const qty = Number(state.priceQuoteQuantities.get(priceKey(row)) ?? 1);
+  return Number.isFinite(qty) && qty >= 0 ? qty : 1;
+}
+
+function priceQuotePdfName() {
+  const stamp = new Date().toISOString().slice(0, 10);
+  return `pre-cotizacion-isaval-${stamp}.pdf`;
+}
+
+function downloadPriceQuotePdf(rows) {
+  const blob = buildPriceQuotePdf(rows);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = priceQuotePdfName();
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function sharePriceQuotePdf(rows) {
+  const blob = buildPriceQuotePdf(rows);
+  const fileName = priceQuotePdfName();
+  const file = new File([blob], fileName, { type: "application/pdf" });
+  if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+    await navigator.share({
+      title: "Pre cotizacion ISAVAL",
+      text: "Pre cotizacion referencial a precio de lista.",
+      files: [file],
+    });
+    return;
+  }
+  downloadPriceQuotePdf(rows);
+  alert("Tu navegador no permite adjuntar el PDF directamente a WhatsApp. Se descargo el PDF para que puedas enviarlo.");
+}
+
+function buildPriceQuotePdf(rows) {
+  const pages = priceQuotePdfPages(rows);
+  const objects = [];
+  const addObject = (body) => {
+    objects.push(body);
+    return objects.length;
+  };
+  const catalogId = addObject("<< /Type /Catalog /Pages 2 0 R >>");
+  const pagesId = addObject("");
+  const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  const boldFontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>");
+  const pageIds = [];
+  pages.forEach((content) => {
+    const contentId = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    const pageId = addObject(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldFontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    pageIds.push(pageId);
+  });
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((body, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function priceQuotePdfPages(rows) {
+  return [priceQuotePdfMainPage(rows)];
+}
+
+function priceQuotePdfMainPage(rows) {
+  const today = new Date().toLocaleDateString("es-PE");
+  const quoteNo = `PRE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
+  const total = rows.reduce((sum, row) => sum + priceQuoteQuantity(row) * Number(row.totalSale || 0), 0);
+  const taxable = total / 1.18;
+  const igv = total - taxable;
+  const ops = [];
+  ops.push("0.05 0.16 0.42 rg");
+  ops.push(pdfTextAt(28, 800, "isaval", 28, "F2"));
+  ops.push("0.35 0.35 0.35 rg");
+  ops.push(pdfTextAt(31, 786, "GLOBAL", 8, "F1"));
+  ops.push("0.05 0.16 0.42 rg 390 785 160 22 re f");
+  ops.push("1 1 1 rg");
+  ops.push(pdfTextAt(430, 793, "PRECOTIZACION", 9, "F2"));
+  ops.push("0 0 0 rg");
+  ops.push(pdfTextAt(410, 772, `NRO: ${quoteNo}`, 8, "F1"));
+  ops.push(pdfTextAt(410, 756, `Fecha emision: ${today}`, 8, "F1"));
+  ops.push(pdfTextAt(28, 765, "PINTURAS ISAVAL PERU S.A.C.", 8, "F2"));
+  ops.push(pdfTextAt(28, 752, "Oficina principal: Av. Javier Prado Este 1148 - La Victoria - Lima", 7, "F1"));
+  ops.push(pdfTextAt(28, 740, "Pre cotizacion referencial generada desde lista de precios local.", 7, "F1"));
+
+  ops.push("0 0 0 RG 0.8 w 28 676 522 50 re S");
+  ops.push(pdfTextAt(42, 712, "Cliente", 8, "F2"));
+  ops.push(pdfTextAt(42, 694, "R.U.C.:", 7, "F2"));
+  ops.push(pdfTextAt(98, 694, quoteCustomerValue("ruc"), 7, "F1"));
+  ops.push(pdfTextAt(42, 680, "Direccion:", 7, "F2"));
+  ops.push(pdfTextAt(98, 680, quoteCustomerValue("address").slice(0, 42), 7, "F1"));
+  ops.push(pdfTextAt(318, 694, "Razon Social:", 7, "F2"));
+  ops.push(pdfTextAt(390, 694, quoteCustomerValue("businessName").slice(0, 28), 7, "F1"));
+  ops.push(pdfTextAt(318, 680, "Atencion:", 7, "F2"));
+  ops.push(pdfTextAt(390, 680, quoteCustomerValue("attention").slice(0, 28), 7, "F1"));
+
+  const tableTop = 645;
+  ops.push("0 0 0 RG 0.8 w 28 628 522 17 re S");
+  ops.push(pdfTextAt(36, 634, "Item", 7, "F2"));
+  ops.push(pdfTextAt(76, 634, "Descripcion", 7, "F2"));
+  ops.push(pdfTextAt(338, 634, "Und", 7, "F2"));
+  ops.push(pdfTextAt(374, 634, "Cant", 7, "F2"));
+  ops.push(pdfTextAt(420, 634, "P. Unitario", 7, "F2"));
+  ops.push(pdfTextAt(498, 634, "Sub Total", 7, "F2"));
+  let y = 610;
+  rows.forEach((row, index) => {
+    const qty = priceQuoteQuantity(row);
+    const unit = Number(row.totalSale || 0);
+    const subtotal = qty * unit;
+    if (y < 330) return;
+    ops.push(pdfTextAt(38, y, String(index + 1), 7, "F1"));
+    ops.push(pdfTextAt(76, y, pdfText(`${row.commercialCode || "s/d"} - ${row.productName || "Sin nombre"}`).slice(0, 58), 7, "F1"));
+    ops.push(pdfTextAt(340, y, "UND", 7, "F1"));
+    ops.push(pdfTextAt(376, y, number(qty), 7, "F1"));
+    ops.push(pdfTextAt(422, y, money(unit), 7, "F1"));
+    ops.push(pdfTextAt(500, y, money(subtotal), 7, "F1"));
+    y -= 18;
+  });
+  ops.push("0.93 0.93 0.93 rg");
+  ops.push(pdfTextAt(196, 410, "ISAVAL", 44, "F2"));
+  ops.push(pdfTextAt(210, 374, "GLOBAL", 32, "F1"));
+  ops.push("0 0 0 rg");
+
+  ops.push("0 0 0 RG 0.8 w 28 190 522 58 re S");
+  ops.push(pdfTextAt(330, 230, "VALOR VENTA", 7, "F2"));
+  ops.push(pdfTextAt(500, 230, money(taxable), 7, "F1"));
+  ops.push(pdfTextAt(330, 214, "IGV 18%", 7, "F2"));
+  ops.push(pdfTextAt(500, 214, money(igv), 7, "F1"));
+  ops.push(pdfTextAt(330, 198, "IMPORTE TOTAL", 7, "F2"));
+  ops.push(pdfTextAt(500, 198, money(total), 7, "F2"));
+
+  ops.push(pdfTextAt(28, 160, "CONDICIONES COMERCIALES", 7, "F2"));
+  ops.push(pdfTextAt(28, 146, "Forma de pago: CONTADO", 7, "F1"));
+  ops.push(pdfTextAt(28, 132, `Vendedor: ${quoteCustomerValue("seller")}`, 7, "F1"));
+  ops.push(pdfTextAt(28, 118, "Validez de la oferta: 7 dias salvo variacion de lista.", 7, "F1"));
+  ops.push(pdfTextAt(28, 104, "Observacion: Pre cotizacion referencial. Confirmar stock antes de emitir pedido.", 7, "F1"));
+
+  ops.push("0.05 0.16 0.42 rg 28 82 180 14 re f");
+  ops.push("1 1 1 rg");
+  ops.push(pdfTextAt(36, 87, "DETALLE TECNICO RESUMIDO", 7, "F2"));
+  ops.push("0 0 0 rg");
+  const technicalLines = rows
+    .flatMap((row, index) => wrapPdfLine(`${index + 1}. ${row.productName || "Sin nombre"}: ${technicalSummaryFor(row)}`, 92))
+    .slice(0, 5);
+  let techY = 66;
+  technicalLines.forEach((line) => {
+    ops.push(pdfTextAt(28, techY, line, 6.5, "F1"));
+    techY -= 10;
+  });
+  if (rows.length > 3) {
+    ops.push(pdfTextAt(28, 16, "Detalle tecnico completo disponible en fichas tecnicas del producto.", 6.5, "F1"));
+  }
+  return ops.join("\n");
+}
+
+function priceQuotePdfTechnicalPages(rows) {
+  const lines = ["DETALLE TECNICO", ""];
+  rows.forEach((row, index) => {
+    lines.push(`${index + 1}. ${row.productName || "Sin nombre"}`);
+    lines.push(`Codigo comercial: ${row.commercialCode || "s/d"}`);
+    lines.push(technicalSummaryFor(row));
+    lines.push("");
+  });
+  const wrapped = lines.flatMap((line) => wrapPdfLine(line, 86));
+  const pages = [];
+  for (let index = 0; index < wrapped.length; index += 48) {
+    const pageLines = wrapped.slice(index, index + 48);
+    const ops = [];
+    ops.push("0.05 0.16 0.42 rg");
+    ops.push(pdfTextAt(28, 800, "isaval", 24, "F2"));
+    ops.push("0.05 0.16 0.42 rg 300 790 250 20 re f");
+    ops.push("1 1 1 rg");
+    ops.push(pdfTextAt(383, 797, "DETALLE TECNICO", 9, "F2"));
+    ops.push("0 0 0 rg");
+    let y = 760;
+    pageLines.forEach((line) => {
+      ops.push(pdfTextAt(42, y, line, line === "DETALLE TECNICO" ? 12 : 8, line === "DETALLE TECNICO" ? "F2" : "F1"));
+      y -= 14;
+    });
+    pages.push(ops.join("\n"));
+  }
+  return pages;
+}
+
+function pdfTextAt(x, y, text, size = 8, font = "F1") {
+  return `BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscape(text)}) Tj ET`;
+}
+
+function wrapPdfLine(line, maxChars) {
+  const text = pdfText(line);
+  if (text.length <= maxChars) return [text];
+  const words = text.split(" ");
+  const lines = [];
+  let current = "";
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  });
+  if (current) lines.push(current);
+  return lines;
+}
+
+function pdfText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function pdfEscape(value) {
+  return pdfText(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
 function exportSelectedPrices(rows) {
@@ -1577,8 +1985,24 @@ function priceWhatsappMessage(rows) {
     "Estimado cliente, el precio de lista es:",
     ...rows.map(
       (row, index) =>
-        `${index + 1}. Codigo comercial: ${row.commercialCode || "s/d"}\nProducto: ${row.productName || "Sin nombre"}\nValor venta: ${money(row.valueSale)} + IGV`
+        `${index + 1}. Codigo comercial: ${row.commercialCode || "s/d"}\nProducto: ${row.productName || "Sin nombre"}\nValor venta: ${money(row.valueSale)} + IGV\nTotal lista: ${money(row.totalSale)}\nInfo tecnica: ${technicalSummaryFor(row)}`
     ),
+  ].join("\n\n");
+}
+
+function priceQuoteMessage(rows) {
+  const lines = rows.map((row, index) => {
+    const qty = priceQuoteQuantity(row);
+    const unit = Number(row.totalSale || 0);
+    const subtotal = qty * unit;
+    return `${index + 1}. ${row.productName || "Sin nombre"}\nCodigo: ${row.commercialCode || "s/d"}\nCantidad: ${number(qty)}\nPrecio lista unit. c/IGV: ${money(unit)}\nSubtotal: ${money(subtotal)}\nInfo tecnica: ${technicalSummaryFor(row)}`;
+  });
+  const total = rows.reduce((sum, row) => sum + priceQuoteQuantity(row) * Number(row.totalSale || 0), 0);
+  return [
+    "Pre cotizacion referencial a precio de lista",
+    "Valores sujetos a confirmacion de stock, condiciones comerciales y validez.",
+    ...lines,
+    `Total referencial c/IGV: ${money(total)}`,
   ].join("\n\n");
 }
 
@@ -1598,9 +2022,14 @@ function technicalDescription(row) {
   return "Descripcion comercial referencial; confirmar usos, rendimiento y aplicacion con ficha tecnica del producto.";
 }
 
+function technicalSummaryFor(row) {
+  const sheet = technicalSheetFor(row);
+  return sheet?.description || technicalDescription(row);
+}
+
 function technicalDescriptionCell(row) {
   const sheet = technicalSheetFor(row);
-  const description = sheet?.description || technicalDescription(row);
+  const description = technicalSummaryFor(row);
   const fallback = `<a href="${technicalSearchUrl(row)}" target="_blank" rel="noopener">Buscar ficha tecnica</a>`;
   const link = sheet
     ? `<a class="technical-sheet-link" href="${sheet.file}" target="_blank" rel="noopener">${escapeHtml(sheet.label)}</a>`
