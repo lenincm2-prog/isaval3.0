@@ -105,6 +105,9 @@ const colors = {
 
 const storageKey = "isaval-crm-local-state-v1";
 const localState = JSON.parse(localStorage.getItem(storageKey) || "{}");
+localState.customClients ||= [];
+localState.prequotes ||= [];
+localState.prequoteNext ||= 1;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -199,6 +202,7 @@ function updatePageHeader(view) {
     stock: ["Analisis de producto", "Rotacion por producto"],
     prices: ["Herramienta local CRM", "Lista de precios y stock"],
     quotes: ["Herramienta local CRM", "Cotizaciones 2026"],
+    prequotes: ["Herramienta local CRM", "Precotizaciones"],
   };
   const [eyebrow, title] = titles[view] || ["Herramienta local CRM", "Historico trimestral de ventas"];
   $("#pageEyebrow").textContent = eyebrow;
@@ -332,6 +336,7 @@ function render() {
   if (state.view === "quotes") renderQuotes();
   if (state.view === "stock") renderStockAnalysis();
   if (state.view === "prices") renderPrices();
+  if (state.view === "prequotes") renderPrequotes();
 }
 
 function renderOverview() {
@@ -1619,6 +1624,7 @@ function renderPriceQuoteModal(rows) {
         <textarea class="price-message-preview quote-preview" readonly>${escapeHtml(message)}</textarea>
         <div class="modal-actions">
           <button class="ghost-btn" id="refreshPriceQuote">Actualizar cantidades</button>
+          <button class="ghost-btn strong-action" id="savePriceQuote">Guardar precotizacion</button>
           <button class="ghost-btn" id="downloadPriceQuotePdf">Descargar PDF</button>
           <button class="ghost-btn whatsapp" id="sharePriceQuotePdf">Enviar PDF</button>
           <a class="ghost-btn action-link whatsapp" href="${href}">Enviar texto</a>
@@ -1637,6 +1643,10 @@ function renderPriceQuoteModal(rows) {
     });
   });
   $("#refreshPriceQuote").addEventListener("click", () => renderPriceQuoteModal(rows));
+  $("#savePriceQuote").addEventListener("click", () => {
+    savePriceQuoteRecord(rows);
+    renderPriceQuoteModal(rows);
+  });
   $("#downloadPriceQuotePdf").addEventListener("click", () => downloadPriceQuotePdf(rows));
   $("#sharePriceQuotePdf").addEventListener("click", () => sharePriceQuotePdf(rows));
 }
@@ -1661,13 +1671,14 @@ function priceQuoteCustomerForm() {
       <label class="wide"><span>Direccion</span><input id="quoteCustomerAddress" value="${escapeHtml(customer.address)}" placeholder="Por confirmar" /></label>
       <label><span>Atencion</span><input id="quoteCustomerAttention" value="${escapeHtml(customer.attention)}" placeholder="Por confirmar" /></label>
       <label><span>Vendedor</span><input id="quoteCustomerSeller" list="quoteSellerOptions" value="${escapeHtml(customer.seller)}" placeholder="Por confirmar" /></label>
+      <button class="ghost-btn strong-action save-customer-btn" id="saveQuoteCustomer" type="button">Guardar cliente</button>
     </div>`;
 }
 
 function quoteClientOptions() {
-  return [...(data.clients || [])]
+  return [...localState.customClients, ...(data.clients || [])]
     .sort((a, b) => (b.total || 0) - (a.total || 0))
-    .slice(0, 350);
+    .slice(0, 500);
 }
 
 function quoteClientLabel(client) {
@@ -1675,7 +1686,7 @@ function quoteClientLabel(client) {
 }
 
 function quoteSellerOptions() {
-  return [...new Set([...(data.sellers || []).map((seller) => seller.name), ...(data.clients || []).map((client) => client.seller)].filter(Boolean))].sort();
+  return [...new Set([...(data.sellers || []).map((seller) => seller.name), ...(data.clients || []).map((client) => client.seller), ...localState.customClients.map((client) => client.seller)].filter(Boolean))].sort();
 }
 
 function bindPriceQuoteCustomerFields(rows) {
@@ -1703,15 +1714,56 @@ function bindPriceQuoteCustomerFields(rows) {
   $("#quoteClientSearch")?.addEventListener("input", (event) => {
     customer.search = event.target.value;
   });
+  $("#saveQuoteCustomer")?.addEventListener("click", () => {
+    saveQuoteCustomer();
+    renderPriceQuoteModal(rows);
+  });
 }
 
 function findQuoteClient(value) {
   const term = normalizeTechnicalText(value);
   if (!term) return null;
-  return (data.clients || []).find((client) => {
+  return [...localState.customClients, ...(data.clients || [])].find((client) => {
     const label = normalizeTechnicalText(quoteClientLabel(client));
     return label === term || label.includes(term) || term.includes(normalizeTechnicalText(client.doc || ""));
   });
+}
+
+function saveQuoteCustomer() {
+  const customer = state.priceQuoteCustomer;
+  const doc = cleanClientDoc(customer.ruc);
+  const name = customer.businessName.trim() || customer.search.trim();
+  if (!doc || !name) {
+    alert("Ingrese R.U.C. y razon social para guardar el cliente.");
+    return;
+  }
+  const client = {
+    id: `local-${doc}`,
+    doc,
+    name,
+    seller: customer.seller.trim() || "Sin vendedor",
+    total: 0,
+    contact: {
+      contact: customer.attention.trim() || name,
+      address: customer.address.trim(),
+      seller: customer.seller.trim() || "Sin vendedor",
+      source: "local",
+    },
+    local: true,
+  };
+  const index = localState.customClients.findIndex((item) => cleanClientDoc(item.doc) === doc);
+  if (index >= 0) {
+    localState.customClients[index] = client;
+  } else {
+    localState.customClients.unshift(client);
+  }
+  state.priceQuoteCustomer.search = quoteClientLabel(client);
+  saveLocal();
+  alert("Cliente guardado en la lista local.");
+}
+
+function cleanClientDoc(value) {
+  return String(value || "").replace(/\D+/g, "");
 }
 
 function fillPriceQuoteCustomer(client) {
@@ -1735,9 +1787,97 @@ function priceQuoteQuantity(row) {
   return Number.isFinite(qty) && qty >= 0 ? qty : 1;
 }
 
+function savePriceQuoteRecord(rows) {
+  if (!rows.length) return null;
+  const numberId = `PRE-${String(localState.prequoteNext).padStart(6, "0")}`;
+  localState.prequoteNext += 1;
+  const record = {
+    id: numberId,
+    createdAt: new Date().toISOString(),
+    customer: { ...state.priceQuoteCustomer },
+    items: rows.map((row) => ({
+      productCode: row.productCode || "",
+      commercialCode: row.commercialCode || "",
+      productName: row.productName || "",
+      priceList: row.priceList || "",
+      valueSale: Number(row.valueSale || 0),
+      igv: Number(row.igv || 0),
+      totalSale: Number(row.totalSale || 0),
+      quantity: priceQuoteQuantity(row),
+      technical: technicalSummaryFor(row),
+    })),
+  };
+  record.total = record.items.reduce((sum, item) => sum + item.quantity * item.totalSale, 0);
+  localState.prequotes.unshift(record);
+  saveLocal();
+  alert(`Precotizacion guardada: ${numberId}`);
+  return record;
+}
+
+function prequoteRecordRows(record) {
+  return (record.items || []).map((item) => ({
+    productCode: item.productCode,
+    commercialCode: item.commercialCode,
+    productName: item.productName,
+    priceList: item.priceList,
+    valueSale: item.valueSale,
+    igv: item.igv,
+    totalSale: item.totalSale,
+    savedTechnical: item.technical,
+  }));
+}
+
+function applyPrequoteRecord(record) {
+  state.priceQuoteCustomer = { ...(record.customer || state.priceQuoteCustomer) };
+  state.priceQuoteQuantities.clear();
+  prequoteRecordRows(record).forEach((row, index) => {
+    const key = priceKey(row);
+    state.priceQuoteQuantities.set(key, Number(record.items[index]?.quantity || 1));
+  });
+}
+
 function priceQuotePdfName() {
   const stamp = new Date().toISOString().slice(0, 10);
   return `pre-cotizacion-isaval-${stamp}.pdf`;
+}
+
+function renderPrequotes() {
+  const rows = localState.prequotes || [];
+  $("#prequoteCount").textContent = `${number(rows.length)} guardadas`;
+  $("#prequoteRows").innerHTML = rows.length
+    ? rows
+        .map((quote) => {
+          const date = new Date(quote.createdAt).toLocaleDateString("es-PE");
+          const customer = quote.customer || {};
+          return `
+            <article class="prequote-row">
+              <div>
+                <strong>${escapeHtml(quote.id)}</strong>
+                <span>${escapeHtml(date)} · ${escapeHtml(customer.businessName || "Sin cliente")} · ${escapeHtml(customer.seller || "Sin vendedor")}</span>
+              </div>
+              <b>${money(quote.total)}</b>
+              <button class="mini-btn" data-prequote-open="${escapeHtml(quote.id)}">Abrir</button>
+              <button class="mini-btn" data-prequote-pdf="${escapeHtml(quote.id)}">PDF</button>
+            </article>`;
+        })
+        .join("")
+    : `<p class="muted empty-note">Aun no hay precotizaciones guardadas.</p>`;
+  $$("#prequoteRows [data-prequote-open]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const record = localState.prequotes.find((item) => item.id === button.dataset.prequoteOpen);
+      if (!record) return;
+      applyPrequoteRecord(record);
+      renderPriceQuoteModal(prequoteRecordRows(record));
+    });
+  });
+  $$("#prequoteRows [data-prequote-pdf]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const record = localState.prequotes.find((item) => item.id === button.dataset.prequotePdf);
+      if (!record) return;
+      applyPrequoteRecord(record);
+      downloadPriceQuotePdf(prequoteRecordRows(record));
+    });
+  });
 }
 
 function downloadPriceQuotePdf(rows) {
@@ -2023,6 +2163,7 @@ function technicalDescription(row) {
 }
 
 function technicalSummaryFor(row) {
+  if (row.savedTechnical) return row.savedTechnical;
   const sheet = technicalSheetFor(row);
   return sheet?.description || technicalDescription(row);
 }

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ISAVAL Global | CRM Historico Comercial</title>
-    <link rel="stylesheet" href="styles.css?v=prequote-customer-v33" />
+    <link rel="stylesheet" href="styles.css?v=prequote-history-v35" />
   </head>
   <body>
     <section id="loginScreen" class="login-screen">
@@ -59,6 +59,9 @@
           </button>
           <button class="nav-btn" data-view="prices" title="Precios y stock">
             <span class="ico">S/</span><span>Precios</span>
+          </button>
+          <button class="nav-btn" data-view="prequotes" title="Precotizaciones">
+            <span class="ico">N°</span><span>Precotiz.</span>
           </button>
         </nav>
         <div class="source-note">
@@ -422,12 +425,28 @@
             <div id="priceRows" class="price-table-wrap"></div>
           </article>
         </section>
+
+        <section id="prequotes" class="view">
+          <div class="section-head">
+            <div>
+              <h2>Precotizaciones guardadas</h2>
+              <p>Registro correlativo local de las precotizaciones generadas.</p>
+            </div>
+          </div>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Historial</h2>
+              <span id="prequoteCount"></span>
+            </div>
+            <div id="prequoteRows" class="prequote-list"></div>
+          </article>
+        </section>
       </main>
     </div>
 
-    <script src="data/crm-data.js?v=prequote-customer-v33"></script>
-    <script src="data/stock-analysis.js?v=prequote-customer-v33"></script>
-    <script src="data/product-yearly-sales.js?v=prequote-customer-v33"></script>
-    <script src="app.js?v=prequote-customer-v33"></script>
+    <script src="data/crm-data.js?v=prequote-history-v35"></script>
+    <script src="data/stock-analysis.js?v=prequote-history-v35"></script>
+    <script src="data/product-yearly-sales.js?v=prequote-history-v35"></script>
+    <script src="app.js?v=prequote-history-v35"></script>
   </body>
 </html>

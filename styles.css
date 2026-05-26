@@ -1833,6 +1833,11 @@ button:disabled {
   border-radius: 8px;
 }
 
+.save-customer-btn {
+  align-self: end;
+  min-height: 38px;
+}
+
 .price-quote-row {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 92px 120px 120px;
@@ -1885,6 +1890,35 @@ button:disabled {
   border-top: 1px solid var(--line);
   border-bottom: 0;
   justify-content: flex-end;
+}
+
+.prequote-list {
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.prequote-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 68px 68px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.prequote-row span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.prequote-row b {
+  text-align: right;
+  white-space: nowrap;
 }
 
 .stock-filters {
@@ -2745,6 +2779,14 @@ button:disabled {
   .price-quote-customer label.wide {
     grid-template-columns: 1fr;
     grid-column: auto;
+  }
+
+  .prequote-row {
+    grid-template-columns: 1fr;
+  }
+
+  .prequote-row b {
+    text-align: left;
   }
 
   .new-client-table,
